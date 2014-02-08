@@ -4,9 +4,8 @@ Exec {
 
 # --- Preinstall Stage ---------------------------------------------------------
 
-stage { 'pre': before => Stage['main'] }
 
-class run_pre {
+class dev_box {
 
   exec { 'apt_update':
     command => 'apt-get -y update',
@@ -23,6 +22,12 @@ class run_pre {
     target => '/vagrant',
     force => true,
   }
+ 
+  file {'/etc/php5/conf.d/mods-unavalable':
+ 	 ensure => present,
+  	 owner => root, group => root, mode => 444,
+  	content => "phar.readonly = off \n",
+}
   
   package { 'php5':
     ensure => installed
@@ -35,8 +40,8 @@ class run_pre {
   Exec['apt_update']->File['var_www']->Package['language-pack-da']->Package['php5']->Package['nodejs']
 }
 
-class { 'run_pre' :
-  stage => 'pre',
+class { 'dev_box' :
+  stage => 'main',
 }
 
 
