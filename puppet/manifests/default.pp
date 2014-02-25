@@ -1,47 +1,58 @@
 Exec {
-  path => ['/usr/sbin', '/usr/bin', '/sbin', '/bin']
+    path => ['/usr/sbin', '/usr/bin', '/sbin', '/bin']
 }
-
-# --- Preinstall Stage ---------------------------------------------------------
-
 
 class dev_box {
 
-  exec { 'apt_update':
-    command => 'apt-get -y update',
-    unless => "test -e ${home}/.rvm"
-  }
+    exec {
+        'apt_update': command => 'apt-get -y update',
+        unless => "test -e ${home}/.rvm"
+    }
 
-  package { 'language-pack-da':
-    ensure => installed
-  }
+    Package {
+        ensure => "installed"
+    }
 
-  file { 'var_www':
-    path =>'/var/www',
-    ensure => 'link',
-    target => '/vagrant',
-    force => true,
-  }
- 
-  file {'/etc/php5/conf.d/mods-unavalable':
- 	 ensure => present,
-  	 owner => root, group => root, mode => 444,
-  	content => "phar.readonly = off \n",
-}
-  
-  package { 'php5':
-    ensure => installed
-  }
+    $enhancements = ["language-pack-da", "php5", "nodejs", "mc", "git"]
 
-  package { 'nodejs':
-    ensure => installed
-  }
-  
-  Exec['apt_update']->File['var_www']->Package['language-pack-da']->Package['php5']->Package['nodejs']
+    package {
+        'enhancements': name => $enhancements
+    }
+
+    file {
+        'var_www': path => '/var/www',
+        ensure => 'link',
+        target => '/vagrant',
+        force => true,
+    }
+    Exec['apt_update'] -> Package['enhancements'] -> File['var_www']
 }
 
-class { 'dev_box' :
-  stage => 'main',
+class add_php_ini($filename, $content) {
+    file {
+        'ini_file': path => "/etc/php5/mods-available/${filename}",
+        ensure => present,
+        owner => root,
+        group => root,
+        mode => 444,
+        content => $content,
+    }
+
+    define phpsymlink {
+        file {
+            $etc_path: path => "${etc_path}/conf.d/30-${filename}",
+            target => '/etc/php5/mods-available/${filename}',
+            ensure => 'link',
+            force => true,
+        }
+
+        File['ini_file'] -> Phpsymlink{['/etc/php5/cli', '/etc/php5/apache2']}
+    }
 }
 
 
+class {'dev_box': stage => 'main'} ->
+class {'add_php_ini': 
+            filename => 'phar.ini',
+            content => "phar.readonly = off \n"
+}
